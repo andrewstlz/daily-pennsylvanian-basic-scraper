@@ -1,28 +1,28 @@
+"""
+Scrapes a headline from The Daily Pennsylvanian website and saves it to a 
+JSON file that tracks headlines over time.
+"""
+
 import os
 import sys
-import time
+
+import daily_event_monitor
+
+import bs4
 import requests
 import loguru
-import bs4
+
 
 def scrape_data_point():
     """
     Scrapes the main headline from The Daily Pennsylvanian home page.
+
+    Returns:
+        str: The headline text if found, otherwise an empty string.
     """
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.google.com/"
-    }
-
-    req = requests.get("https://www.thedp.com", headers=headers)
-
+    req = requests.get("https://www.thedp.com")
     loguru.logger.info(f"Request URL: {req.url}")
     loguru.logger.info(f"Request status code: {req.status_code}")
-
-    if req.status_code == 403:
-        loguru.logger.error("Access forbidden (403). The website is blocking the request.")
-        return None
 
     if req.ok:
         soup = bs4.BeautifulSoup(req.text, "html.parser")
@@ -31,9 +31,13 @@ def scrape_data_point():
         loguru.logger.info(f"Data point: {data_point}")
         return data_point
 
+
 if __name__ == "__main__":
+
+    # Setup logger to track runtime
     loguru.logger.add("scrape.log", rotation="1 day")
 
+    # Create data dir if needed
     loguru.logger.info("Creating data directory if it does not exist")
     try:
         os.makedirs("data", exist_ok=True)
@@ -41,11 +45,43 @@ if __name__ == "__main__":
         loguru.logger.error(f"Failed to create data directory: {e}")
         sys.exit(1)
 
-    loguru.logger.info("Starting scrape")
-    time.sleep(10)  # Respect Crawl-delay from robots.txt
+    # Load daily event monitor
+    loguru.logger.info("Loading daily event monitor")
+    dem = daily_event_monitor.DailyEventMonitor(
+        "data/daily_pennsylvanian_headlines.json"
+    )
 
+    # Run scrape
+    loguru.logger.info("Starting scrape")
     try:
         data_point = scrape_data_point()
     except Exception as e:
         loguru.logger.error(f"Failed to scrape data point: {e}")
         data_point = None
+
+    # Save data
+    if data_point is not None:
+        dem.add_today(data_point)
+        dem.save()
+        loguru.logger.info("Saved daily event monitor")
+
+    def print_tree(directory, ignore_dirs=[".git", "__pycache__"]):
+        loguru.logger.info(f"Printing tree of files/dirs at {directory}")
+        for root, dirs, files in os.walk(directory):
+            dirs[:] = [d for d in dirs if d not in ignore_dirs]
+            level = root.replace(directory, "").count(os.sep)
+            indent = " " * 4 * (level)
+            loguru.logger.info(f"{indent}+--{os.path.basename(root)}/")
+            sub_indent = " " * 4 * (level + 1)
+            for file in files:
+                loguru.logger.info(f"{sub_indent}+--{file}")
+
+    print_tree(os.getcwd())
+
+    loguru.logger.info("Printing contents of data file {}".format(dem.file_path))
+    with open(dem.file_path, "r") as f:
+        loguru.logger.info(f.read())
+
+    # Finish
+    loguru.logger.info("Scrape complete")
+    loguru.logger.info("Exiting")
