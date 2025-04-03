@@ -24,9 +24,7 @@ The workflow defined in `.github/workflows/scrape.yaml` runs on a defined schedu
 
 The workflow schedule is configured with [cron syntax](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule) to run:
 
-- Every day at 8PM UTC
-
-This once-daily scraping is a good rule-of-thumb, as it is generally respectful of the target website, as it does not contribute to any measurable burden to the site's resources.
+The initial cron expression 14 3,15 * * * means my job runs at 3:14AM and 3:14PM UTC every day. The five fields are minute, hour, day of month, month, and day of week.
 
 You can use [crontab.guru](https://crontab.guru/) to generate your own cron schedule.
 
